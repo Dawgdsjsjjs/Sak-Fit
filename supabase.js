@@ -1,9 +1,30 @@
+// Sak Fitness Supabase connection
+
 (function () {
-  const cfg = window.SAK_CONFIG || {};
-  if (!cfg.SUPABASE_URL || cfg.SUPABASE_URL.includes("YOUR_") ||
-      !cfg.SUPABASE_ANON_KEY || cfg.SUPABASE_ANON_KEY.includes("YOUR_")) {
-    window.sakDbError = "Add your Supabase URL and ANON/PUBLISHABLE key in config.js";
-    return;
-  }
-  window.sakDb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
+
+    if (!window.SAK_CONFIG) {
+        console.error("SAK_CONFIG was not loaded.");
+        window.sakDb = null;
+        return;
+    }
+
+    const url = window.SAK_CONFIG.SUPABASE_URL;
+    const key = window.SAK_CONFIG.SUPABASE_ANON_KEY;
+
+    if (!url || !key) {
+        console.error("Supabase URL or Publishable key is missing.");
+        window.sakDb = null;
+        return;
+    }
+
+    if (!window.supabase || !window.supabase.createClient) {
+        console.error("Supabase library was not loaded.");
+        window.sakDb = null;
+        return;
+    }
+
+    window.sakDb = window.supabase.createClient(url, key);
+
+    console.log("Sak Fitness database connected.");
+
 })();
