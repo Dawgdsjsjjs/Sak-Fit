@@ -1,1 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sak Fitness — Member Portal</title>
 
+<style>
+*{box-sizing:border-box}
+body{
+    margin:0;
+    background:#080a0f;
+    color:#fff;
+    font-family:Arial,Helvetica,sans-serif;
+}
+header{
+    padding:18px 6%;
+    border-bottom:1px solid #292f39;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+}
+.logo{
+    font-size:22px;
+    font-weight:900;
+}
+.logo span{
+    background:#a3ff12;
+    color:#071000;
+    padding:9px 12px;
+    border-radius:10px;
+    margin-right:8px;
+}
+main{
+    max-width:1000px;
+    margin:auto;
+    padding:35px 18px;
+}
+h1{
+    font-size:clamp(40px,8vw,70px);
+    line-height:.95;
+}
+.green{color:#a3ff12}
+.card{
+    background:#11151d;
+    border:1px solid #29313d;
+    border-radius:20px;
+    padding:22px;
+    margin-top:20px;
+}
+input,select{
+    width:100%;
+    padding:14px;
+    margin:7px 0;
+    border-radius:12px;
+    border:1px solid #29313d;
+    background:#080b10;
+    color:#fff;
+    font-size:16px;
+}
+button{
+    border:0;
+    border-radius:12px;
+    padding:13px 18px;
+    font-weight:bold;
+    cursor:pointer;
+}
+.primary{
+    background:#a3ff12;
+    color:#071000;
+}
+.secondary{
+    background:#181e28;
+    color:#fff;
+    border:1px solid #29313d;
+}
+.grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:18px;
+}
+.row{
+    display:flex;
+    justify-content:space-between;
+    padding:12px;
+    margin:7px 0;
+    background:#0b0f15;
+    border-radius:10px;
+}
+.muted{color:#9ba4b4}
+.active{
+    color:#a3ff12;
+    background:#a3ff1218;
+    padding:10px;
+    border-radius:10px;
+    font-weight:bold;
+}
+.expired{
+    color:#ff5570;
+    background:#ff557018;
+    padding:10px;
+    border-radius:10px;
+    font-weight:bold;
+}
+.qr{
+    background:white;
+    padding:12px;
+    border-radius:15px;
+    max-width:320px;
+    margin:20px auto;
+}
+.qr img{
+    width:100%;
+    display:block;
+}
+.center{text-align:center}
+.hidden{display:none}
+
+@media(max-width:700px){
+    .grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+
+<body>
+
+<header>
+    <div class="logo">
+        <span>S</span>Sak Fitness
+    </div>
+</header>
+
+<main>
+
+<div id="registerBox" class="card">
+
+<h1>Your fitness.<br>
+<span class="green">Your pass.</span></h1>
+
+<p class="muted">
+Create your Sak Fitness membership and receive your digital QR pass.
+</p>
+
+<form id="registerForm">
+
+<input id="name" placeholder="Full name" required>
+
+<input id="email" type="email" placeholder="Email" required>
+
+<input id="phone" placeholder="Phone number" required>
+
+<select id="plan">
+<option value="Monthly">Monthly — ₹999</option>
+<option value="Quarterly">Quarterly — ₹2,499</option>
+<option value="Annual">Annual — ₹8,999</option>
+</select>
+
+<button class="primary" type="submit">
+Register & Generate QR
+</button>
+
+</form>
+
+<p id="message"></p>
+
+</div>
+
+
+<div id="portal" class="hidden">
+
+<div class="grid">
+
+<div class="card">
+
+<h2 id="memberName"></h2>
+
+<div id="status"></div>
+
+<div class="row">
+<span>Member ID</span>
+<b id="memberCode"></b>
+</div>
+
+<div class="row">
+<span>Membership</span>
+<b id="memberPlan"></b>
+</div>
+
+<div class="row">
+<span>Start Date</span>
+<b id="startDate"></b>
+</div>
+
+<div class="row">
+<span>Expiry Date</span>
+<b id="expiryDate"></b>
+</div>
+
+<div class="row">
+<span>Phone</span>
+<b id="memberPhone"></b>
+</div>
+
+<br>
+
+<button class="secondary" onclick="logout()">
+Log out
+</button>
+
+</div>
+
+
+<div class="card center">
+
+<h2>Digital Member Pass</h2>
+
+<div class="qr">
+<img id="qrImage">
+</div>
+
+<h2 id="qrCode"></h2>
+
+<p class="muted">
+Show this QR code to Sak Fitness staff.
+</p>
+
+<button class="primary" onclick="saveQR()">
+Save QR
+</button>
+
+</div>
+
+</div>
+
+</div>
+
+</main>
+
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script src="../config.js"></script>
+<script src="../supabase.js"></script>
+
+<script>
+
+const $ = id => document.getElementById(id);
+
+function formatDate(date){
+
+    return new Date(date + "T00:00:00")
+    .toLocaleDateString("en-IN",{
+        day:"numeric",
+        month:"short",
+        year:"numeric"
+    });
+
+}
+
+
+function generateMemberID(){
+
+    return "SAK-" +
+    Math.floor(100000 + Math.random()*900000);
+
+}
+
+
+$("registerForm").addEventListener("submit", async function(e){
+
+    e.preventDefault();
+
+    if(!window.sakDb){
+
+        $("message").innerHTML =
+        '<span style="color:#ff5570">Database not configured.</span>';
+
+        return;
+    }
+
+    const now = new Date();
+
+    const plan = $("plan").value;
+
+    let months = 1;
+
+    if(plan === "Quarterly") months = 3;
+    if(plan === "Annual") months = 12;
+
+    const expiry = new Date(now);
+
+    expiry.setMonth(expiry.getMonth() + months);
+
+    const memberCode = generateMemberID();
+
+    const member = {
+
+        member_code:memberCode,
+
+        name:$("name").value.trim(),
+
+        email:$("email").value.trim(),
+
+        phone:$("phone").value.trim(),
+
+        plan:plan,
+
+        start_date:now.toISOString().slice(0,10),
+
+        expiry_date:expiry.toISOString().slice(0,10)
+
+    };
+
+
+    const {data,error} =
+    await window.sakDb
+    .from("members")
+    .insert(member)
+    .select()
+    .single();
+
+
+    if(error){
+
+        $("message").innerHTML =
+        '<span style="color:#ff5570">' +
+        error.message +
+        '</span>';
+
+        return;
+    }
+
+
+    localStorage.setItem(
+        "sak_member_code",
+        memberCode
+    );
+
+
+    showMember(data);
+
+});
+
+
+function showMember(member){
+
+    $("registerBox").classList.add("hidden");
+
+    $("portal").classList.remove("hidden");
+
+    $("memberName").textContent =
+    member.name;
+
+    $("memberCode").textContent =
+    member.member_code;
+
+    $("qrCode").textContent =
+    member.member_code;
+
+    $("memberPlan").textContent =
+    member.plan;
+
+    $("startDate").textContent =
+    formatDate(member.start_date);
+
+    $("expiryDate").textContent =
+    formatDate(member.expiry_date);
+
+    $("memberPhone").textContent =
+    member.phone;
+
+
+    const active =
+    new Date(member.expiry_date+"T23:59:59")
+    >= new Date();
+
+
+    $("status").className =
+    active ? "active" : "expired";
+
+    $("status").textContent =
+    active
+    ? "✓ MEMBERSHIP ACTIVE"
+    : "✕ MEMBERSHIP EXPIRED";
+
+
+    /*
+       QR contains ONLY the Member ID.
+       No private information is placed inside the QR.
+    */
+
+    $("qrImage").src =
+    "https://api.qrserver.com/v1/create-qr-code/?size=600x600&data="
+    + encodeURIComponent(member.member_code);
+
+}
+
+
+async function loadExistingMember(){
+
+    const code =
+    localStorage.getItem("sak_member_code");
+
+    if(!code || !window.sakDb) return;
+
+
+    const {data,error} =
+    await window.sakDb
+    .from("members")
+    .select("*")
+    .eq("member_code",code)
+    .maybeSingle();
+
+
+    if(data){
+
+        showMember(data);
+
+    }
+
+}
+
+
+function logout(){
+
+    localStorage.removeItem(
+        "sak_member_code"
+    );
+
+    location.reload();
+
+}
+
+
+function saveQR(){
+
+    const link =
+    document.createElement("a");
+
+    link.href =
+    $("qrImage").src;
+
+    link.download =
+    "Sak-Fitness-QR.png";
+
+    link.click();
+
+}
+
+
+loadExistingMember();
+
+</script>
+
+</body>
+</html>
