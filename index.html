@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sak Fitness — Staff QR Scanner</title>
+<style>
+:root{--bg:#080a0f;--c:#11151d;--c2:#181e28;--t:#f7f8fb;--m:#9ba4b4;--a:#a3ff12;--l:#29313d;--r:#ff5570}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 80% 0,#a3ff1225,transparent 35rem),var(--bg);color:var(--t);font-family:system-ui,Arial}
+nav{border-bottom:1px solid var(--l);padding:14px 17px}.nav,main{max-width:1000px;margin:auto}.nav{display:flex;justify-content:space-between}.logo{font-weight:900}.mark{display:inline-grid;place-items:center;background:var(--a);color:#071000;width:38px;height:38px;border-radius:12px;margin-right:8px}.staff{color:var(--a);font-size:11px;font-weight:900;padding-top:10px}
+main{padding:28px 16px}.hero{text-align:center}.ey{color:var(--a);font-size:11px;letter-spacing:2px;font-weight:900}.hero h1{font-size:clamp(38px,7vw,65px);letter-spacing:-3px;margin:10px}.muted{color:var(--m);line-height:1.55}.grid{display:grid;grid-template-columns:1fr 1fr;gap:15px}.card{background:#11151deb;border:1px solid var(--l);border-radius:22px;padding:20px}.camera{position:relative;aspect-ratio:1;background:#020406;border-radius:16px;overflow:hidden;display:grid;place-items:center}.camera video{width:100%;height:100%;object-fit:cover}.box{position:absolute;width:65%;aspect-ratio:1;border:3px solid var(--a);border-radius:20px;box-shadow:0 0 0 999px #0007}.line{position:absolute;width:60%;height:2px;background:var(--a);box-shadow:0 0 15px var(--a);animation:s 2s linear infinite}@keyframes s{0%{transform:translateY(-100px)}50%{transform:translateY(100px)}100%{transform:translateY(-100px)}}.msg{position:absolute;background:#000c;padding:9px;border-radius:9px}.btn{border:0;border-radius:13px;padding:13px 16px;font-weight:850;cursor:pointer}.primary{background:var(--a);color:#071000}.secondary{background:var(--c2);color:var(--t);border:1px solid var(--l)}.buttons{display:flex;gap:8px;margin-top:12px}.buttons .btn{flex:1}input{width:100%;padding:13px;border-radius:12px;background:#0b0f15;color:white;border:1px solid var(--l);font-size:16px;margin:9px 0}.result{display:none;margin-top:15px}.result.show{display:block}.status{padding:13px;border-radius:12px;margin-bottom:10px;font-weight:900}.ok{background:#a3ff1218;color:var(--a)}.bad{background:#ff557018;color:#ff8a9d}.rows{display:grid;gap:8px}.row{display:flex;justify-content:space-between;padding:11px;background:#0b0f15;border:1px solid var(--l);border-radius:10px}.row span{color:var(--m)}@media(max-width:750px){.grid{grid-template-columns:1fr}}
+</style></head><body>
+<nav><div class="nav"><div class="logo"><span class="mark">S</span>Sak Fitness</div><div class="staff">STAFF • QR CHECK-IN</div></div></nav>
+<main><div class="hero"><div class="ey">STAFF PORTAL</div><h1>SCAN. <span style="color:var(--a)">VERIFY.</span></h1><p class="muted">Scan the QR from the member portal. The scanner looks up the member in the shared database.</p></div>
+<div class="grid">
+<section class="card"><div class="ey">CAMERA</div><h2>Scan Member QR</h2><div class="camera"><video id="video" playsinline muted></video><div class="box"></div><div class="line"></div><div id="msg" class="msg">Camera not started</div></div><div class="buttons"><button class="btn primary" onclick="start()">Start camera</button><button class="btn secondary" onclick="stop()">Stop</button></div></section>
+<section class="card"><div class="ey">MANUAL</div><h2>Enter Member ID</h2><p class="muted">Example: SAK-123456</p><input id="code" placeholder="SAK-123456"><button class="btn primary" style="width:100%" onclick="lookup(document.getElementById('code').value)">Verify member</button><div id="result" class="result"></div></section>
+</div></main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="../config.js"></script><script src="../supabase.js"></script><script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+<script>
+const $=x=>document.getElementById(x);let stream=null,running=false,last="";
+function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
+function fmt(s){return new Date(s+"T00:00:00").toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"})}
+async function lookup(raw){
+ const code=(raw||"").trim().toUpperCase();if(!code)return;
+ $("code").value=code;if(!window.sakDb){$("result").className="result show";$("result").innerHTML='<div class="status bad">'+(window.sakDbError||"Database not configured")+"</div>";return}
+ const {data,error}=await sakDb.from("members").select("*").eq("member_code",code).maybeSingle();
+ $("result").className="result show";
+ if(error||!data){$("result").innerHTML='<div class="status bad">✕ MEMBER NOT FOUND</div><p class="muted">'+esc(error?.message||"No matching member.")+"</p>";return}
+ const active=new Date(data.expiry_date+"T23:59:59")>=new Date();
+ $("result").innerHTML='<div class="status '+(active?"ok":"bad")+'">'+(active?"✓ MEMBERSHIP ACTIVE":"✕ MEMBERSHIP EXPIRED")+'</div><div class="rows"><div class="row"><span>Name</span><b>'+esc(data.name)+'</b></div><div class="row"><span>Member ID</span><b>'+esc(data.member_code)+'</b></div><div class="row"><span>Plan</span><b>'+esc(data.plan)+'</b></div><div class="row"><span>Expires</span><b>'+fmt(data.expiry_date)+'</b></div></div>';
+ if(active){$("result").insertAdjacentHTML("beforeend",'<button class="btn primary" style="width:100%;margin-top:10px" onclick="checkin(\''+esc(data.id)+'\')">✓ Confirm check-in</button>')}
+}
+async function checkin(id){const {error}=await sakDb.from("checkins").insert({member_id:id});if(error)alert(error.message);else alert("Check-in recorded ✓")}
+async function start(){if(!window.isSecureContext){$("msg").textContent="Camera requires HTTPS";return}try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"}},audio:false});$("video").srcObject=stream;await $("video").play();running=true;$("msg").style.display="none";scan()}catch(e){$("msg").textContent="Camera permission denied"}}
+function stop(){running=false;if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;$("video").srcObject=null;$("msg").style.display="block";$("msg").textContent="Camera stopped"}
+function scan(){if(!running)return;const v=$("video");if(v.readyState>=2){const c=document.createElement("canvas");c.width=v.videoWidth;c.height=v.videoHeight;const x=c.getContext("2d");x.drawImage(v,0,0,c.width,c.height);const im=x.getImageData(0,0,c.width,c.height);const q=window.jsQR?jsQR(im.data,im.width,im.height):null;if(q&&q.data&&q.data!==last){last=q.data;lookup(q.data);if(navigator.vibrate)navigator.vibrate(120)}}requestAnimationFrame(scan)}
+</script></body></html>
